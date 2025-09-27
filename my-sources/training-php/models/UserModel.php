@@ -7,18 +7,21 @@ class UserModel extends BaseModel
 
     public function findUserById($id)
     {
-        $sql = 'SELECT * FROM users WHERE id = ' . $id;
-        $user = $this->select($sql);
-
-        return $user;
+        $stmt = self::$_connection->prepare('SELECT * FROM users WHERE id = ?');
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result->fetch_all(MYSQLI_ASSOC);
     }
 
     public function findUser($keyword)
     {
-        $sql = 'SELECT * FROM users WHERE user_name LIKE %' . $keyword . '%' . ' OR user_email LIKE %' . $keyword . '%';
-        $user = $this->select($sql);
-
-        return $user;
+        $stmt = self::$_connection->prepare('SELECT * FROM users WHERE user_name LIKE ? OR user_email LIKE ?');
+        $like = "%$keyword%";
+        $stmt->bind_param('ss', $like, $like);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result->fetch_all(MYSQLI_ASSOC);
     }
 
     /**
@@ -37,9 +40,11 @@ class UserModel extends BaseModel
 
     public function auth($userName, $password)
     {
-        $hashPassword = md5($password);
-        $sql = 'SELECT * FROM users WHERE name = "' . $userName . '" AND password = "' . $hashPassword . '"';
-        return $this->select($sql);
+        $stmt = self::$_connection->prepare('SELECT * FROM users WHERE name = ? AND password = ?');
+        $stmt->bind_param('ss', $userName, $password);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result->fetch_all(MYSQLI_ASSOC);
     }
 
 
@@ -50,9 +55,9 @@ class UserModel extends BaseModel
      */
     public function deleteUserById($id)
     {
-        $sql = 'DELETE FROM users WHERE id = ' . $id;
-        return $this->delete($sql);
-
+        $stmt = self::$_connection->prepare('DELETE FROM users WHERE id = ?');
+        $stmt->bind_param('i', $id);
+        return $stmt->execute();
     }
 
     /**
@@ -62,14 +67,10 @@ class UserModel extends BaseModel
      */
     public function updateUser($input)
     {
-        $sql = 'UPDATE users SET 
-                 name = "' . mysqli_real_escape_string(self::$_connection, $input['name']) . '", 
-                 password="' . md5($input['password']) . '"
-                WHERE id = ' . $input['id'];
-
-        $user = $this->update($sql);
-
-        return $user;
+        $stmt = self::$_connection->prepare('UPDATE users SET name = ?, password = ? WHERE id = ?');
+        $md5Password = md5($input['password']);
+        $stmt->bind_param('ssi', $input['name'], $md5Password, $input['id']);
+        return $stmt->execute();
     }
 
     /**
@@ -79,44 +80,31 @@ class UserModel extends BaseModel
      */
     public function insertUser($input)
     {
-        $name = $input['name'] ?? '';
-        $password = $input['password'] ?? '';
-        $fullname = $input['fullname'] ?? ''; 
-        $email = $input['email'] ?? ''; 
-        $type = $input['type'] ?? '';
-        $vesion = $input['vesion'] ?? 0;// <-- tránh undefined key
-
-        $sql = "INSERT INTO `app_web1`.`users` (`name`, `password`, `fullname`, `email`, `type`, `version`) VALUES (" .
-            "'" . $this->escape($name) . "', '" . md5($password) . "', '" . $this->escape($fullname) . "', '" . $this->escape($email) . "', '" . $this->escape($type) . "', '" . $this->escape($vesion) . "')";
-
-        $user = $this->insert($sql);
-        return $user;
+        $stmt = self::$_connection->prepare('INSERT INTO users (name, password) VALUES (?, ?)');
+        $md5Password = md5($input['password']);
+        $stmt->bind_param('ss', $input['name'], $md5Password);
+        return $stmt->execute();
     }
-
 
     /**
      * Search users
      * @param array $params
      * @return array
      */
+
     public function getUsers($params = [])
     {
-        //Keyword
         if (!empty($params['keyword'])) {
-            $sql = 'SELECT * FROM users WHERE name LIKE "%' . $params['keyword'] . '%"';
-
-            //Keep this line to use Sql Injection
-            //Don't change
-            //Example keyword: abcef%";TRUNCATE banks;##
-            $users = self::$_connection->multi_query($sql);
-
-            //Get data
-            $users = $this->query($sql);
+            $stmt = self::$_connection->prepare('SELECT * FROM users WHERE name LIKE ?');
+            $like = "%{$params['keyword']}%";
+            $stmt->bind_param('s', $like);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            return $result->fetch_all(MYSQLI_ASSOC);
         } else {
             $sql = 'SELECT * FROM users';
-            $users = $this->select($sql);
+            $result = self::$_connection->query($sql);
+            return $result->fetch_all(MYSQLI_ASSOC);
         }
-
-        return $users;
     }
 }
